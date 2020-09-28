@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Laravel\Socialite\Facades\Socialite;
 use Mollie\Laravel\Facades\Mollie;
@@ -19,20 +20,32 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/payment/oauth/return', function (\Illuminate\Http\Request  $request) {
-    dd($request);
-});
+Route::middleware(['auth:sanctum', 'verified'])->get('/dashboard', function () {
+    return view('dashboard');
+})->name('dashboard');
 
-Route::get('mollie-login', function () {
-    return Socialite::with('mollie')
-        ->scopes(['profiles.read']) // Additional permission: profiles.read
-        ->redirect();
-});
+/**
+ * MOLLIE...
+ */
+Route::middleware('auth')->group(function () {
+    Route::get('mollie-login', function () {
+        return Socialite::with('mollie')
+            ->scopes(['profiles.read']) // Additional permission: profiles.read
+            ->redirect();
+    });
 
-Route::get('login_callback', function () {
-    $user = Socialite::with('mollie')->user();
+    Route::middleware('auth')->get('/payment/oauth/return', function (\Illuminate\Http\Request $request) {
+        $mollieUser = Socialite::with('mollie')->user();
 
-    Mollie::api()->setAccessToken($user->token);
+        $localUser = $request->user();
+        $localUser->forceFill([
+            'access_token' => $mollieUser->token,
+            'access_token_expires_at' => now()->addSeconds($mollieUser->expiresIn),
+            'refresh_token' => $mollieUser->refreshToken,
+        ])->save();
 
-    return Mollie::api()->profiles()->page(); // Retrieve payment profiles available on the obtained Mollie account
+        Mollie::api()->setAccessToken($mollieUser->token);
+
+        return redirect(route('dashboard'));
+    });
 });

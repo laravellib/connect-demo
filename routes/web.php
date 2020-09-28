@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Laravel\Socialite\Facades\Socialite;
 use Mollie\Laravel\Facades\Mollie;
@@ -38,7 +37,7 @@ Route::middleware('auth')->group(function () {
         $mollieUser = Socialite::with('mollie')->user();
 
         $localUser = $request->user();
-        $localUser->forceFill([
+        $localUser->currentTeam->forceFill([
             'access_token' => $mollieUser->token,
             'access_token_expires_at' => now()->addSeconds($mollieUser->expiresIn),
             'refresh_token' => $mollieUser->refreshToken,
